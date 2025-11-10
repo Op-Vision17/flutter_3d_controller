@@ -71,6 +71,8 @@ class ModelViewer extends StatefulWidget {
     this.environmentImage,
     this.exposure,
     this.shadowIntensity,
+    this.lockVerticalRotation = false, // ADD THIS
+    this.verticalAngle = 75.0,
     this.shadowSoftness,
     this.animationName,
     this.animationCrossfadeDuration,
@@ -602,6 +604,17 @@ class ModelViewer extends StatefulWidget {
   /// This callBack will call when model failed to load
   /// and will return string error
   final Function(String error)? onError;
+
+  // ADD THESE NEW FIELDS at the end:
+
+  /// If true, locks the vertical rotation at a fixed angle.
+  /// Only horizontal rotation will be allowed.
+  final bool lockVerticalRotation;
+
+  /// The vertical angle (phi) to lock at when lockVerticalRotation is true.
+  /// Measured in degrees from the top (0° = top, 90° = eye level, 180° = bottom).
+  /// Defaults to 75° for a slightly elevated view.
+  final double verticalAngle;
 
   @override
   State<ModelViewer> createState() => ModelViewerState();

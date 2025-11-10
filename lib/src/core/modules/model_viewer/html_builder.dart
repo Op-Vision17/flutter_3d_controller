@@ -75,10 +75,43 @@ abstract class HTMLBuilder {
     final String? relatedJs,
     final String? id,
     final bool? debugLogging,
+    bool lockVerticalRotation = false,
+    double verticalAngle = 75.0,
   }) {
     if (relatedCss != null) {
       // ignore: parameter_assignments
       htmlTemplate = htmlTemplate.replaceFirst('/* other-css */', relatedCss);
+    }
+
+    // Add JavaScript to handle locked vertical rotation for ModelViewer
+    String lockRotationScript = '';
+    if (lockVerticalRotation) {
+      final idSelector = id != null ? '#${htmlEscape.convert(id)}' : '';
+      lockRotationScript = '''
+<script>
+  (function() {
+    const modelViewer = document.querySelector('model-viewer$idSelector');
+    if (modelViewer) {
+      const fixedPhi = $verticalAngle; // degrees from top
+      
+      // Store initial orbit
+      let initialOrbit = null;
+      
+      modelViewer.addEventListener('camera-change', () => {
+        if (!initialOrbit && modelViewer.getCameraOrbit) {
+          initialOrbit = modelViewer.getCameraOrbit();
+        }
+        
+        const currentOrbit = modelViewer.getCameraOrbit();
+        if (currentOrbit) {
+          // Lock the phi (vertical) angle, allow theta (horizontal) to change
+          modelViewer.cameraOrbit = currentOrbit.theta + 'rad ' + fixedPhi + 'deg ' + currentOrbit.radius + 'm';
+        }
+      });
+    }
+  })();
+</script>
+''';
     }
 
     final modelViewerHtml = StringBuffer()
@@ -141,6 +174,7 @@ abstract class HTMLBuilder {
           modelViewerHtml.write(' ar-scale="fixed"');
       }
     }
+
     // ar-placement
     if (arPlacement != null) {
       switch (arPlacement) {
@@ -233,10 +267,13 @@ abstract class HTMLBuilder {
       modelViewerHtml
           .write(' interaction-prompt-threshold="$interactionPromptThreshold"');
     }
-    // camera-orbit
+    // camera-orbit - Set initial vertical angle if locked
     if (cameraOrbit != null) {
       modelViewerHtml
           .write(' camera-orbit="${htmlEscape.convert(cameraOrbit)}"');
+    } else if (lockVerticalRotation) {
+      // Set initial camera position with locked vertical angle
+      modelViewerHtml.write(' camera-orbit="0deg ${verticalAngle}deg 105%"');
     }
     // camera-target
     if (cameraTarget != null) {
@@ -248,15 +285,21 @@ abstract class HTMLBuilder {
       modelViewerHtml
           .write(' field-of-view="${htmlEscape.convert(fieldOfView)}"');
     }
-    // max-camera-orbit
+    // max-camera-orbit - Restrict vertical movement if locked
     if (maxCameraOrbit != null) {
       modelViewerHtml
           .write(' max-camera-orbit="${htmlEscape.convert(maxCameraOrbit)}"');
+    } else if (lockVerticalRotation) {
+      modelViewerHtml
+          .write(' max-camera-orbit="Infinity ${verticalAngle}deg Infinity"');
     }
-    // min-camera-orbit
+    // min-camera-orbit - Restrict vertical movement if locked
     if (minCameraOrbit != null) {
       modelViewerHtml
           .write(' min-camera-orbit="${htmlEscape.convert(minCameraOrbit)}"');
+    } else if (lockVerticalRotation) {
+      modelViewerHtml
+          .write(' min-camera-orbit="-Infinity ${verticalAngle}deg auto"');
     }
     // max-field-of-view
     if (maxFieldOfView != null) {
@@ -300,14 +343,14 @@ abstract class HTMLBuilder {
       if (shadowIntensity < 0 || shadowIntensity > 1) {
         throw RangeError('shadow-intensity must be between 0 and 1');
       }
-      modelViewerHtml.write(' shadow-intensity="$shadowIntensity}"');
+      modelViewerHtml.write(' shadow-intensity="$shadowIntensity"');
     }
     // shadow-softness
     if (shadowSoftness != null) {
       if (shadowSoftness < 0 || shadowSoftness > 1) {
         throw RangeError('shadow-softness must be between 0 and 1');
       }
-      modelViewerHtml.write(' shadow-softness="$shadowSoftness}"');
+      modelViewerHtml.write(' shadow-softness="$shadowSoftness"');
     }
 
     // Animation Attributes
@@ -319,7 +362,8 @@ abstract class HTMLBuilder {
     // animation-crossfade-duration
     if (animationCrossfadeDuration != null) {
       if (animationCrossfadeDuration < 0) {
-        throw RangeError('shadow-softness must be any number >= 0');
+        throw RangeError(
+            'animation-crossfade-duration must be any number >= 0');
       }
       modelViewerHtml
           .write(' animation-crossfade-duration="$animationCrossfadeDuration"');
@@ -356,7 +400,7 @@ abstract class HTMLBuilder {
     //Default Progress bar color
     if (progressBarColor != null) {
       modelViewerHtml.write(
-          ' --progress-bar-color: rgba(${progressBarColor.r * 255}, ${progressBarColor.g * 255}, ${progressBarColor.b * 255}, ${progressBarColor.a * 255})');
+          ' --progress-bar-color: rgba(${progressBarColor.r * 255}, ${progressBarColor.g * 255}, ${progressBarColor.b * 255}, ${progressBarColor.a * 255});');
     }
 
     // Annotations CSS
@@ -385,6 +429,11 @@ abstract class HTMLBuilder {
       modelViewerHtml.writeln(innerModelViewerHtml);
     }
     modelViewerHtml.writeln('</model-viewer>');
+
+    // Add lock rotation script after model-viewer
+    if (lockVerticalRotation) {
+      modelViewerHtml.writeln(lockRotationScript);
+    }
 
     if (relatedJs != null) {
       modelViewerHtml

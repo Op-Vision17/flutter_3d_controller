@@ -49,6 +49,20 @@ class Flutter3DViewer extends StatefulWidget {
   /// the default value is true.
   final bool enableTouch;
 
+  /// If true, locks the vertical rotation at a fixed angle.
+  /// Only horizontal rotation will be allowed.
+  /// Works for both glTF/GLB and OBJ models.
+  final bool lockVerticalRotation;
+
+  /// The vertical angle (phi) to lock at when lockVerticalRotation is true.
+  /// Measured in degrees from the top (0° = top, 90° = eye level, 180° = bottom).
+  /// Defaults to 75° for a slightly elevated view (good for human models).
+  /// Common values:
+  /// - 60-80°: Good for human models
+  /// - 90°: Eye level
+  /// - 45°: Bird's eye view
+  final double verticalAngle;
+
   /// Flag to indicate if the .obj constructor was used.
   final bool isObj;
 
@@ -63,6 +77,8 @@ class Flutter3DViewer extends StatefulWidget {
     this.activeGestureInterceptor = true,
     this.enableTouch = true,
     this.onProgress,
+    this.lockVerticalRotation = false, // ADD THIS
+    this.verticalAngle = 75.0, // ADD THIS
     this.onLoad,
     this.onError,
   })  : isObj = false,
@@ -79,6 +95,8 @@ class Flutter3DViewer extends StatefulWidget {
     this.cameraY,
     this.cameraZ,
     this.onProgress,
+    this.lockVerticalRotation = false, // ADD THIS
+    this.verticalAngle = 75.0,
     this.onLoad,
     this.onError,
   })  : progressBarColor = null,
@@ -147,6 +165,8 @@ class _Flutter3DViewerState extends State<Flutter3DViewer> {
             autoRotate: false,
             debugLogging: false,
             disableTap: true,
+            lockVerticalRotation: widget.lockVerticalRotation, // ADD THIS
+            verticalAngle: widget.verticalAngle, // ADD THIS
             onProgress: widget.onProgress,
             onLoad: (modelAddress) {
               _controller.onModelLoaded.value = true;
