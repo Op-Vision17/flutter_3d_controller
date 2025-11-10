@@ -84,6 +84,7 @@ abstract class HTMLBuilder {
     }
 
     // Add JavaScript to handle locked vertical rotation for ModelViewer
+
     String lockRotationScript = '';
     if (lockVerticalRotation) {
       final idSelector = id != null ? '#${htmlEscape.convert(id)}' : '';
@@ -93,21 +94,78 @@ abstract class HTMLBuilder {
     const modelViewer = document.querySelector('model-viewer$idSelector');
     if (modelViewer) {
       const fixedPhi = $verticalAngle; // degrees from top
+      let isUpdating = false;
       
-      // Store initial orbit
-      let initialOrbit = null;
-      
-      modelViewer.addEventListener('camera-change', () => {
-        if (!initialOrbit && modelViewer.getCameraOrbit) {
-          initialOrbit = modelViewer.getCameraOrbit();
+      // Function to enforce the locked angle
+      function enforceLock() {
+        if (isUpdating) return;
+        isUpdating = true;
+        
+        try {
+          const orbit = modelViewer.getCameraOrbit();
+          if (orbit) {
+            // Only update if phi has changed from our fixed value
+            const currentPhi = orbit.phi * (180 / Math.PI); // Convert to degrees
+            const tolerance = 0.5; // Small tolerance to avoid floating point issues
+            
+            if (Math.abs(currentPhi - fixedPhi) > tolerance) {
+              // Lock the phi (vertical) angle, keep theta (horizontal) and radius
+              modelViewer.cameraOrbit = 
+                orbit.theta + 'rad ' + 
+                fixedPhi + 'deg ' + 
+                orbit.radius + 'm';
+            }
+          }
+        } catch (e) {
+          console.warn('Error enforcing camera lock:', e);
         }
         
-        const currentOrbit = modelViewer.getCameraOrbit();
-        if (currentOrbit) {
-          // Lock the phi (vertical) angle, allow theta (horizontal) to change
-          modelViewer.cameraOrbit = currentOrbit.theta + 'rad ' + fixedPhi + 'deg ' + currentOrbit.radius + 'm';
+        isUpdating = false;
+      }
+      
+      // Listen to camera changes and enforce lock
+      modelViewer.addEventListener('camera-change', enforceLock);
+      
+      // Also enforce on interaction
+      let rafId = null;
+      modelViewer.addEventListener('mousedown', () => {
+        function checkAndEnforce() {
+          enforceLock();
+          rafId = requestAnimationFrame(checkAndEnforce);
         }
+        rafId = requestAnimationFrame(checkAndEnforce);
       });
+      
+      modelViewer.addEventListener('mouseup', () => {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        enforceLock();
+      });
+      
+      modelViewer.addEventListener('touchstart', () => {
+        function checkAndEnforce() {
+          enforceLock();
+          rafId = requestAnimationFrame(checkAndEnforce);
+        }
+        rafId = requestAnimationFrame(checkAndEnforce);
+      });
+      
+      modelViewer.addEventListener('touchend', () => {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        enforceLock();
+      });
+      
+      // Enforce lock after model loads
+      modelViewer.addEventListener('load', () => {
+        setTimeout(() => enforceLock(), 100);
+      });
+      
+      console.log('Vertical rotation locked at ' + fixedPhi + ' degrees');
     }
   })();
 </script>
